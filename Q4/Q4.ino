@@ -1,19 +1,19 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#ifndef F_CPU
-#define F_CPU 16000000UL  // Set 16 MHz clock speed
-#endif
+// #ifndef F_CPU
+// #define F_CPU 16000000UL  // Set 16 MHz clock speed
+// #endif
 
-#define USART_BAUDRATE 9600
-#define BAUD_PRESCALE ((( F_CPU / 16) / ( USART_BAUDRATE ))- 1)
+// #define USART_BAUDRATE 9600
+// #define BAUD_PRESCALE ((( F_CPU / 16) / ( USART_BAUDRATE ))- 1)
 
 const int _pin_dat = 2;   
 const int _pin_clk = 6;
 const int _pin_ena = 5;
 volatile bool buttonPressed = false;
 
-volatile int delayTime = 15;
+volatile int delayTime = 159; //10 micro second
 volatile bool isPressed = false;
 volatile int numberOfInterrupt = 0;
 
@@ -27,13 +27,13 @@ uint8_t _bcd2dec(uint8_t bcd)
 }
 
 int main(void) {
-  // Serial.begin(9600); //no need for serial println
+  Serial.begin(9600); //no need for serial println
 
   // // USART Configuration
-  UBRR0H = (BAUD_PRESCALE >> 8);  // Load upper 8 bits of the baud rate value
-  UBRR0L = BAUD_PRESCALE;        // Load lower 8 bits of the baud rate value
-  UCSR0C |= (1 << UCSZ00) | (1 << UCSZ01);  // Use 8-bit character sizes
-  UCSR0B |= (1 << RXEN0) | (1 << TXEN0);  // Turn on the transmission and reception circuitry
+  // UBRR0H = (BAUD_PRESCALE >> 8);  // Load upper 8 bits of the baud rate value
+  // UBRR0L = BAUD_PRESCALE;        // Load lower 8 bits of the baud rate value
+  // UCSR0C |= (1 << UCSZ00) | (1 << UCSZ01);  // Use 8-bit character sizes
+  // UCSR0B |= (1 << RXEN0) | (1 << TXEN0);  // Turn on the transmission and reception circuitry
 
   // Initialize communication with the DS1302
   EICRA |= (1 << ISC01);  // Falling edge triggers interrupt
@@ -104,8 +104,6 @@ if (isPressed && numberOfInterrupt < 32) {
 
    }else if (isPressed && numberOfInterrupt >= 32) {
       PORTD &= ~(1 << _pin_ena);
-      Serial.print("Number interrupt ");  // Testing
-      Serial.println(numberOfInterrupt);
       DDRB |= (1 << _pin_dat);
       isPressed = false;
 
