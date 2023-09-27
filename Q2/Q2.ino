@@ -1,20 +1,18 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
-#include <util/delay.h>
 
-volatile int currentLED = 2; //current LED
+volatile int currentLED = 2; 
 volatile int gear = 0;
 volatile bool isForward = true;
-// volatile int delayTime = 7812.5; //for prescaler 256
 volatile int delayTime64 = 31249; //for prescaler 64 
 volatile int enterInterruptTime = 0;
 volatile int numberInterruptNeeded = 0;
 
 
 void setup() {
-  Serial.begin(9600);      // Testing 
-  Serial.println("Forward");   // Testing
-  Serial.println("Gear 0");   // Testing
+  Serial.begin(9600);      
+  Serial.println("Forward");   
+  Serial.println("Gear 0");  
 
   EICRA |= (1 << ISC01) | (1 << ISC11); // Falling edge triggers interrupt
 
@@ -31,7 +29,6 @@ void setup() {
 
   //Configure for Timer 1
   TCCR1A = 0; 
-  // TCCR1B = (1 << WGM12) | (1 << CS12); // CTC mode with prescaler 256
   TCCR1B = (1 << WGM12) | (1 << CS10) | (1 << CS11); // CTC mode with prescaler 64
   OCR1A = delayTime64; // Set OCR1A for a 125 ms delay
 
@@ -45,23 +42,20 @@ void setup() {
 }
 
 ISR(INT0_vect){
-  if(gear+1<3){
+  if(gear+1<3){  //change to the next gear
     gear++;
   }else{
     gear = 0;
   }
   
   if (gear == 0) {
-    Serial.println("Gear 0");   // Testing
-    // OCR1A = delayTime;
+    Serial.println("Gear 0");  
     numberInterruptNeeded = 0;
   } else if(gear == 1) {
-    Serial.println("Gear 1");   // Testing
-    // OCR1A = delayTime*2;
+    Serial.println("Gear 1");   
     numberInterruptNeeded = 1;
   } else{
-    Serial.println("Gear 2");   // Testing
-    // OCR1A = delayTime*3;
+    Serial.println("Gear 2");   
     numberInterruptNeeded = 2;
   }
 }
@@ -73,8 +67,6 @@ ISR(INT1_vect){
 
 
 ISR(TIMER1_COMPA_vect) {
-  // Serial.print("Enter Interrput ");
-  // Serial.println(enterInterruptTime);
   if((enterInterruptTime == 0 && numberInterruptNeeded == 0) || (enterInterruptTime == 1 && numberInterruptNeeded == 1) || (enterInterruptTime == 2 && numberInterruptNeeded == 2)){
     if(isForward){
       //led go forward
@@ -130,14 +122,6 @@ ISR(TIMER1_COMPA_vect) {
     enterInterruptTime = 0; //reset number of time enter interrupt
 
   }else if(enterInterruptTime > gear){
-    //prevent case that the enterInterrupt is > gear (for example it currently count to 2 and I switch from gear 2 to 0. There fore the enterInterrupt = 2 && gear == 0 => never meet)
-    // Serial.print("current interrupt: ");
-    // Serial.println("---------reset Enter Interupt--------------"); 
-    // Serial.print(enterInterruptTime);
-    // Serial.print(" > ");
-    // Serial.print("gear: ");
-    // Serial.println(gear);
-    // Serial.println("---------");
     enterInterruptTime = 0;
   }else{
     enterInterruptTime++;
