@@ -8,7 +8,7 @@
 #define USART_BAUDRATE 9600
 #define BAUD_PRESCALE ((( F_CPU / 16) / ( USART_BAUDRATE ))- 1)
 
-const int _pin_dat = 7;   
+const int _pin_dat = 2;   
 const int _pin_clk = 6;
 const int _pin_ena = 5;
 volatile bool buttonPressed = false;
@@ -20,7 +20,7 @@ volatile int numberOfInterrupt = 0;
 int main(void) {
   // Serial.begin(9600); //no need for serial println
 
-  // USART Configuration
+  // // USART Configuration
   UBRR0H = (BAUD_PRESCALE >> 8);  // Load upper 8 bits of the baud rate value
   UBRR0L = BAUD_PRESCALE;        // Load lower 8 bits of the baud rate value
   UCSR0C |= (1 << UCSZ00) | (1 << UCSZ01);  // Use 8-bit character sizes
@@ -35,7 +35,7 @@ int main(void) {
 
   //RTC init
   DDRD |= (1 << _pin_ena) | (1 << _pin_clk); // Set pin_ena and pin_clk as OUTPUT
-  DDRD |= (1 << _pin_dat); // Set pin_dat to INPUT
+  DDRB |= (1 << _pin_dat); // Set pin_dat to INPUT
   PORTD &= ~((1 << _pin_ena) | (1 << _pin_clk)); // Set pin_ena and pin_clk LOW
   
   //Configure for Timer 1
@@ -53,47 +53,48 @@ int main(void) {
 
 ISR(INT0_vect){
   // Prepare READ for "minutes" register (0x83)
-    DDRD |= (1 << _pin_dat); // Set pin_dat as OUTPUT
+    DDRB |= (1 << _pin_dat); // Set pin_dat as OUTPUT
     PORTD |= (1 << _pin_ena); // Set pin_ena HIGH
+    delayMicroseconds(10);
     uint8_t command = 0x83; // Address for "minutes" register
     // _writeByte(command);
     for(uint8_t b = 0; b < 8; b++)
     {
         if (command & 0x01){
-            PORTD |= (1 << _pin_dat); // Set pin_dat HIGH
+            PORTB |= (1 << _pin_dat); // Set pin_dat HIGH
         }
         else{
-            PORTD &= ~(1 << _pin_dat); // Set pin_dat LOW
+            PORTB &= ~(1 << _pin_dat); // Set pin_dat LOW
 
         }
             PORTD |= (1 << _pin_clk); // Set pin_clk HIGH
-            delayMicroseconds(1);
+            delayMicroseconds(10);
 
             PORTD &= ~(1 << _pin_clk); // Set pin_clk LOW
-            delayMicroseconds(1);
+            delayMicroseconds(10);
 
             command >>= 1;
     }
-    DDRD &= ~(1 << _pin_dat); // Set pin_dat as INPUT
+    DDRB &= ~(1 << _pin_dat); // Set pin_dat as INPUT
 
     uint8_t byte = 0;
-    Serial.println("Minute");
+    // Serial.println("Minute");
     for(uint8_t b = 0; b < 8; b++)
     {
-        if (PIND & (1 << _pin_dat)) {
+        if (PINB & (1 << _pin_dat)) {
             // Serial.print("1");
             byte |= (0x01 << b);
         }else{
             // Serial.print("0");
         }
             PORTD |= (1 << _pin_clk); // Set pin_clk HIGH
-            delayMicroseconds(1);
+            delayMicroseconds(10);
 
             PORTD &= ~(1 << _pin_clk); // Set pin_clk LOW
-            delayMicroseconds(1);
+            delayMicroseconds(10);
     }
 
-    Serial.println( _bcd2dec(byte & 0b01111111)); //use this to print the value
+    // Serial.println( _bcd2dec(byte & 0b01111111)); //use this to print the value
     // UDR0 = byte; //use this for osciliscopre
 
     PORTD &= ~(1 << _pin_ena); // Set pin_ena LOW
