@@ -13,9 +13,18 @@ const int _pin_clk = 6;
 const int _pin_ena = 5;
 volatile bool buttonPressed = false;
 
-volatile int delayTime = 16;
+volatile int delayTime = 15;
 volatile bool isPressed = false;
 volatile int numberOfInterrupt = 0;
+
+volatile uint8_t command = 0x83;
+volatile uint8_t byte_data = 0;
+volatile int counterRead = 0;
+
+uint8_t _bcd2dec(uint8_t bcd)
+{
+    return ((bcd / 16 * 10) + (bcd % 16));
+}
 
 int main(void) {
   // Serial.begin(9600); //no need for serial println
@@ -30,19 +39,19 @@ int main(void) {
   EICRA |= (1 << ISC01);  // Falling edge triggers interrupt
   EIMSK |= (1 << INT0);   // Enable external interrupt INT0
   DDRD &= ~(1 << PD2);    // Set PD2 as input
-  PORTD |= (1 << PD2);    // Enable pull-up resistor on PD2
-  // TIMSK0 = (1 << OCIE0A); // Turn on Timer 0 Interrupt
+  // PORTD |= (1 << PD2);    // Enable pull-up resistor on PD2
 
   //RTC init
   DDRD |= (1 << _pin_ena) | (1 << _pin_clk); // Set pin_ena and pin_clk as OUTPUT
-  DDRB |= (1 << _pin_dat); // Set pin_dat to INPUT
+  DDRB |= (1 << _pin_dat); // Set pin_dat to OUTPUT
   PORTD &= ~((1 << _pin_ena) | (1 << _pin_clk)); // Set pin_ena and pin_clk LOW
+  PORTB &= ~(1 << _pin_dat);
   
   //Configure for Timer 1
-  TCCR1A = 0;
-  TCCR1B = (1 << WGM12);  // CTC mode with no prescaler
+  TCCR1B |= (1 << WGM12);  // CTC mode with no prescaler
+  TCCR1B |= (1 << CS10);
   OCR1A = delayTime;  // Set OCR1A for a 1 micro second delay
-  TIMSK1 = 0;  //turn off Timer 1 Interrupt
+  TIMSK1 |= (1 << OCIE1A); // Turn on Timer 1 compare match A interrupt
 
   sei(); // Global interrupt enable
 
@@ -50,57 +59,66 @@ int main(void) {
   }
 }
 
-
-ISR(INT0_vect){
-  // Prepare READ for "minutes" register (0x83)
-    DDRB |= (1 << _pin_dat); // Set pin_dat as OUTPUT
-    PORTD |= (1 << _pin_ena); // Set pin_ena HIGH
-    delayMicroseconds(10);
-    uint8_t command = 0x83; // Address for "minutes" register
-    // _writeByte(command);
-    for(uint8_t b = 0; b < 8; b++)
-    {
-        if (command & 0x01){
-            PORTB |= (1 << _pin_dat); // Set pin_dat HIGH
-        }
-        else{
-            PORTB &= ~(1 << _pin_dat); // Set pin_dat LOW
-
-        }
-            PORTD |= (1 << _pin_clk); // Set pin_clk HIGH
-            delayMicroseconds(10);
-
-            PORTD &= ~(1 << _pin_clk); // Set pin_clk LOW
-            delayMicroseconds(10);
-
-            command >>= 1;
-    }
-    DDRB &= ~(1 << _pin_dat); // Set pin_dat as INPUT
-
-    uint8_t byte = 0;
-    // Serial.println("Minute");
-    for(uint8_t b = 0; b < 8; b++)
-    {
-        if (PINB & (1 << _pin_dat)) {
-            // Serial.print("1");
-            byte |= (0x01 << b);
-        }else{
-            // Serial.print("0");
-        }
-            PORTD |= (1 << _pin_clk); // Set pin_clk HIGH
-            delayMicroseconds(10);
-
-            PORTD &= ~(1 << _pin_clk); // Set pin_clk LOW
-            delayMicroseconds(10);
-    }
-
-    // Serial.println( _bcd2dec(byte & 0b01111111)); //use this to print the value
-    // UDR0 = byte; //use this for osciliscopre
-
-    PORTD &= ~(1 << _pin_ena); // Set pin_ena LOW
+ISR(INT0_vect) {
+  isPressed = true;
+  TCNT1 = 0;  //reset counter
+  numberOfInterrupt = 0;
+  PORTD |= (1 << _pin_ena); // Set pin_ena HIGH
+  if (command & (1 << numberOfInterrupt)) {
+    PORTB |= (1 << _pin_dat);
+  } else {
+    PORTB &= ~(1 << _pin_dat);
+  }
 }
 
-uint8_t _bcd2dec(uint8_t bcd)
-{
-    return ((bcd / 16 * 10) + (bcd % 16));
+ISR(TIMER1_COMPA_vect) {
+
+if (isPressed && numberOfInterrupt < 32) {
+    numberOfInterrupt++;
+
+    PORTD ^= (1 << _pin_clk);
+
+
+      if (numberOfInterrupt < 16) {
+        if (numberOfInterrupt == 15) {
+        PORTB &= ~(1 << _pin_dat);
+        DDRB &= ~(1 << _pin_dat);
+        }
+        if(numberOfInterrupt % 2 == 0){
+          if (command & (1 << numberOfInterrupt/2)){
+              PORTB |= (1 << _pin_dat); // Set pin_dat HIGH
+          }
+          else{
+              PORTB &= ~(1 << _pin_dat); // Set pin_dat LOW
+          }
+        }
+      }else if(numberOfInterrupt >= 16 && numberOfInterrupt < 32){
+        if(numberOfInterrupt % 2 == 0){
+          if (PINB & (1 << _pin_dat)){
+              byte_data |= (1 << (numberOfInterrupt / 2 - 8));
+          }
+        }
+      }
+
+
+
+   }else if (isPressed && numberOfInterrupt >= 32) {
+      PORTD &= ~(1 << _pin_ena);
+      Serial.print("Number interrupt ");  // Testing
+      Serial.println(numberOfInterrupt);
+      DDRB |= (1 << _pin_dat);
+      isPressed = false;
+
+      Serial.print("*Curent Minute ");  // Testing
+      Serial.println(_bcd2dec(byte_data & 0b01111111));
+
+      PORTD &= ~(1 << _pin_clk); // Set pin_ena LOW
+      PORTB &= ~(1 << _pin_dat);
+
+      // TIMSK1 = 0; // Turn on Timer 1 compare match A interrupt
+      byte_data = 0;
+
+  }
 }
+
+
