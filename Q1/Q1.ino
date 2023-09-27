@@ -1,12 +1,10 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
-#include <util/delay.h>
 
-int var = 0;
 volatile bool isHighFreq = true;
 
 void setup() {
-  Serial.begin(9600);      // Testing 
+  Serial.begin(9600);   
   EICRA |= (1 << ISC01); // Falling edge triggers interrupt
   EIMSK |= (1 << INT0); // Enable INT0
   DDRD &= ~(1 << PD2); // Set PD2 as input
@@ -24,9 +22,9 @@ void setup() {
   //Configure for Timer 1
   TCCR1A = 0; 
   TCCR1B = (1 << WGM12) | (1 << CS12); // CTC mode with prescaler 256
-  OCR1A = 6249; // Set OCR1A for a 100 ms delay
+  OCR1A = 6249; // Set OCR1A for 5Hz frequency
 
-  TIMSK1 = 0; // TIMSK1 = (1 << OCIE1A); //Turn off Timer 1 Interrupt
+  TIMSK1 = 0; //Turn off Timer 1 Interrupt by default
 
 
   sei(); // Gloval interrupt enable
@@ -44,19 +42,18 @@ ISR(INT0_vect){
     TIMSK1 = 0; 
 
   } else {
-    Serial.println("100Hz");
-    // Configure Timer 1 for 5Hz
+    Serial.println("5Hz");
     TIMSK0 = 0; 
     TIMSK1 = (1 << OCIE1A);
   }
 }
 
 ISR(TIMER0_COMPA_vect) {
-  PORTB ^= (1 << 5); // toggle port B5
+  PORTB ^= (1 << 5); 
   
 }
 
 ISR(TIMER1_COMPA_vect) {
-  PORTB ^= (1 << 5); // toggle port B5
+  PORTB ^= (1 << 5); 
 }
 
